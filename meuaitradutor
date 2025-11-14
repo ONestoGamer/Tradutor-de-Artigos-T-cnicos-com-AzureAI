@@ -1,0 +1,53 @@
+import requests
+from docx import Document
+import os
+subscription_key = "ve4IedPMVypF7eUl7uctuptfL6Dn8ex6SfUT6WnVLMPG2Z4yVSl5JQQJ99BKACHYHv6XJ3w3AAABACOG4l6y"
+# Correct endpoint to be just the base URL
+endpoint = 'https://api.cognitive.microsofttranslator.com'
+location = "eastus2"
+language_destination = 'pt-br'
+
+def translator_text(text, target_language):
+    path = '/translate'
+    # constructed_url now correctly combines base endpoint and path
+    constructed_url = endpoint + path
+    headers = {
+        'Ocp-Apim-Subscription-Key': subscription_key,
+        'Ocp-Apim-Subscription-Region': location,
+        'Content-type': 'application/json',
+        'X-ClientTraceId': str(os.urandom(16))
+    }
+
+    body = [{
+        'text': text
+    }]
+    params = {
+        'api-version': '3.0',
+        'from': 'en',
+        'to': target_language
+    }
+    # requests.post will correctly append params to constructed_url
+    request = requests.post(constructed_url, params=params, headers=headers, json=body)
+
+    # Added for debugging: Print status code and response if not 200
+    if request.status_code != 200:
+        print(f"API Request failed with status code: {request.status_code}")
+        print(f"API Response: {request.json()}") # Assuming response is JSON even on error
+        request.raise_for_status() # This will raise an HTTPError for bad responses (4xx or 5xx)
+
+    response = request.json()
+    return response[0]["translations"][0]["text"]
+
+def translate_document(path):
+    document = Document(path)
+    full_text = []
+    for paragraph in document.paragraphs:
+      translated_segment = translator_text(paragraph.text, language_destination)
+      full_text.append(translated_segment)
+
+    translated_doc = Document()
+    for line in full_text:
+      translated_doc.add_paragraph(line)
+    path_translated = path.replace('.docx', f"_{language_destination}.docx")
+    translated_doc.save(path_translated)
+    return path_translated
